@@ -20,7 +20,6 @@ except ImportError:
     print("Error: mistune is not installed. Please install it with 'sudo apt install python3-mistune'.")
     sys.exit(1)
 
-# Try to import GFM plugin for mistune
 try:
     from mistune.plugins import plugin_gfm
 except ImportError:
@@ -37,13 +36,11 @@ def get_github_css(dark=False):
         with urllib.request.urlopen(url, timeout=3) as resp:
             css = resp.read().decode("utf-8")
     except Exception:
-        # Minimal fallback
         css = """
         .markdown-body { font-family: sans-serif; color: #24292f; background: #fff; padding: 2em; }
         h1, h2, h3, h4, h5, h6 { font-weight: bold; }
         pre, code { background: #f6f8fa; font-family: monospace; }
         """
-    # Add 20px margin left/right for readability
     css += ".markdown-body { margin-left:20px; margin-right:20px; margin-top:20px; margin-bottom:20px; }"
     return css
 
@@ -54,13 +51,12 @@ def render_markdown(md_text, dark=False):
         md = mistune.create_markdown()
     html = md(md_text)
     css = get_github_css(dark)
-    # Optimized scroll restoration script using sessionStorage (throttled for low CPU)
     scroll_script = """
     <script>
     (function() {
         var key = "fast_md_viewer_scroll";
         var lastSave = 0;
-        var throttle = 120; // ms
+        var throttle = 120;
         function saveScroll() {
             var now = Date.now();
             if (now - lastSave > throttle) {
@@ -87,7 +83,6 @@ def render_markdown(md_text, dark=False):
         document.addEventListener("DOMContentLoaded", function() {
             setTimeout(restoreScroll, 0);
         });
-        // Fallback: try again after a short delay in case of late layout
         window.addEventListener("load", function() {
             setTimeout(restoreScroll, 50);
         });
@@ -109,13 +104,18 @@ def render_markdown(md_text, dark=False):
 
 class MarkdownViewer(Gtk.Window):
     def __init__(self, md_path):
-        Gtk.Window.__init__(self, title="Fast MD Viewer (GitHub Style)")
+        # Extract directory name, file name, and extension
+        dir_name = os.path.basename(os.path.dirname(os.path.abspath(md_path)))
+        file_name, ext = os.path.splitext(os.path.basename(md_path))
+        window_title = f"{dir_name}/{file_name}{ext}"
+
+        # Initialize window with dynamic title
+        Gtk.Window.__init__(self, title=window_title)
         self.set_default_size(900, 700)
         self.md_path = md_path
         self.dark_mode = False
         self.zoom = 1.0
 
-        # Overlay for button/label
         self.overlay = Gtk.Overlay()
         self.add(self.overlay)
 
@@ -134,14 +134,11 @@ class MarkdownViewer(Gtk.Window):
             settings.set_enable_write_console_messages_to_stdout(False)
 
         self.overlay.add(self.webview)
-        # No need for load-changed or _pending_scroll_y for scroll restoration
 
         self.load_markdown()
 
-        # Ctrl+scroll for zoom
         self.webview.connect("scroll-event", self.on_scroll)
 
-        # Light/dark mode toggle button
         self.toggle_btn = Gtk.Button()
         self.toggle_btn.set_relief(Gtk.ReliefStyle.NONE)
         self.toggle_btn.set_tooltip_text("Toggle light/dark mode")
@@ -150,7 +147,6 @@ class MarkdownViewer(Gtk.Window):
         self.toggle_btn.set_label("🌙" if not self.dark_mode else "☀️")
         self.toggle_btn.connect("clicked", self.on_toggle_mode)
 
-        # Zoom label
         self.zoom_label = Gtk.Label()
         self.zoom_label.set_margin_start(4)
         self.zoom_label.set_margin_end(2)
@@ -161,7 +157,6 @@ class MarkdownViewer(Gtk.Window):
         self.zoom_label.set_visible(False)
         self.zoom_label.set_size_request(-1, 20)
 
-        # Box for label and button (label left, button right)
         self.btn_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=2)
         self.btn_box.pack_start(self.zoom_label, False, False, 0)
         self.btn_box.pack_start(self.toggle_btn, False, False, 0)
@@ -204,7 +199,6 @@ class MarkdownViewer(Gtk.Window):
     def update_zoom_label(self):
         percent = int(round(self.zoom * 100))
         if percent != 100:
-            # Toggle color with mode
             if self.dark_mode:
                 self.zoom_label.set_markup(f'<span foreground="#eee" size="large">{percent}%</span>')
             else:
@@ -218,6 +212,7 @@ def main():
         print("Usage: fast_md_viewer.py <file.md>")
         sys.exit(1)
     win = MarkdownViewer(sys.argv[1])
+    win.maximize()
     win.connect("destroy", Gtk.main_quit)
     win.show_all()
     Gtk.main()
